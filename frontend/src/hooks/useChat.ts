@@ -52,14 +52,14 @@ export function useChat({ model, temperature, systemPrompt, sessionId, onSession
         content,
       };
 
-      setMessages((prev) => {
-        const next = [...prev, userMsg];
-        startStream(next);
-        return next;
-      });
+      // Build next messages outside the updater so startStream isn't called
+      // inside a state setter (React StrictMode calls updaters twice).
+      const nextMessages = [...messages, userMsg];
+      setMessages(nextMessages);
+      startStream(nextMessages);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isStreaming, model, temperature, systemPrompt, sessionId]
+    [isStreaming, messages, model, temperature, systemPrompt, sessionId]
   );
 
   function startStream(currentMessages: UIMessage[]) {
