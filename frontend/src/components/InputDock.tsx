@@ -2,16 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { detectDir } from '@/lib/utils';
+import { ModeSelector } from './ModeSelector';
+import { AnswerMode } from '@/hooks/useChat';
 
 interface InputDockProps {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   disabled?: boolean;
+  mode: AnswerMode;
+  onModeChange: (m: AnswerMode) => void;
+  onFileSelect?: (file: File) => void;
 }
 
-export function InputDock({ value, onChange, onSend, disabled }: InputDockProps) {
+export function InputDock({ value, onChange, onSend, disabled, mode, onModeChange, onFileSelect }: InputDockProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dir = detectDir(value);
   const [phToggle, setPhToggle] = useState(false);
 
@@ -39,7 +45,28 @@ export function InputDock({ value, onChange, onSend, disabled }: InputDockProps)
   return (
     <div className="input-dock">
       <div style={{ width: '100%', maxWidth: 768, position: 'relative' }}>
+        <ModeSelector value={mode} onChange={onModeChange} />
         <div className="input-shell">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".pdf,.txt,.md"
+            className="hidden"
+            onChange={(e) => { if (e.target.files?.[0]) onFileSelect?.(e.target.files[0]); e.target.value = ''; }}
+          />
+          <button
+            type="button"
+            className="upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Upload file"
+          >
+            <svg className="icon-clip icon-stroke" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+            <svg className="icon-plus icon-stroke" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
           <textarea
             ref={taRef}
             className="input-textarea"

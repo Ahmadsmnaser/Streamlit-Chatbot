@@ -6,9 +6,10 @@ import { Topbar } from './Topbar';
 import { Message, StreamingMessage } from './Message';
 import { EmptyState } from './EmptyState';
 import { InputDock } from './InputDock';
-import { useChat } from '@/hooks/useChat';
+import { useChat, AnswerMode } from '@/hooks/useChat';
 import { useChatSessions } from '@/hooks/useChatSessions';
-import { updateSession } from '@/lib/api';
+import { useRag } from '@/hooks/useRag';
+import { MessageNavDots } from './MessageNavDots';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -25,12 +26,15 @@ export function ChatApp() {
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM);
   const [input, setInput] = useState('');
   const [chatTitle, setChatTitle] = useState('New Chat');
+  const [mode, setMode] = useState<AnswerMode>('simple');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
     sessions, activeSessionId, refresh: refreshSessions,
     createNewSession, loadSession, removeSession, renameSession,
   } = useChatSessions();
+
+  const { files: uploadedFiles, upload: uploadFile, clear: clearRagFiles } = useRag(activeSessionId);
 
   const {
     messages, isStreaming, streamingContent,
@@ -39,6 +43,7 @@ export function ChatApp() {
   } = useChat({
     model, temperature, systemPrompt,
     sessionId: activeSessionId,
+    mode,
     onSessionUpdate: refreshSessions,
   });
 
@@ -164,23 +169,48 @@ export function ChatApp() {
           {showEmpty ? (
             <EmptyState onSuggest={handleSuggest} />
           ) : (
-            <div className="messages">
+            <>
+              <MessageNavDots messages={messages} isStreaming={isStreaming} />
+              <div className="messages">
               {messages.map((m) => (
-                <Message key={m.id} msg={m} onRegenerate={m.role === 'assistant' ? regenerate : undefined} />
+                <div key={m.id} id={`msg-${m.id}`}>
+                  <Message msg={m} onRegenerate={m.role === 'assistant' ? regenerate : undefined} />
+                </div>
               ))}
               {isStreaming && (
                 <StreamingMessage content={streamingContent} onStop={cancelStream} />
               )}
               <div ref={messagesEndRef} />
-            </div>
+              </div>
+            </>
           )}
         </div>
+
+        {uploadedFiles.length > 0 && (
+          <div className="file-chips">
+            {uploadedFiles.map((f) => (
+              <div key={f.fileName} className={`file-chip status-${f.status}`}>
+                <span className="file-chip-name">{f.fileName}</span>
+                <span className="file-chip-status">
+                  {f.status === 'uploading' ? 'Uploading…'
+                    : f.status === 'processing' ? 'Processing…'
+                    : f.status === 'ready' ? `${f.chunks} chunks`
+                    : 'Failed'}
+                </span>
+              </div>
+            ))}
+            <button className="file-chips-clear" onClick={clearRagFiles} title="Clear uploaded files">×</button>
+          </div>
+        )}
 
         <InputDock
           value={input}
           onChange={setInput}
           onSend={handleSend}
           disabled={isStreaming}
+          mode={mode}
+          onModeChange={setMode}
+          onFileSelect={uploadFile}
         />
       </main>
     </div>

@@ -3,7 +3,7 @@
 Provides REST + SSE endpoints for the Next.js frontend.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -17,13 +17,18 @@ from models import (
     ModelInfo,
 )
 from llm import stream_llm
+from services.modes import MODE_PROMPTS
+from services.rag.extractor import extract_text
+from services.rag.chunker import chunk_pages
+from services.rag.store import RAGStore
+from services.rag.context_builder import build_context_prompt
+from services.rag.citation_formatter import format_citations
 from chat_store import (
     list_chats,
     create_chat,
     get_chat,
     update_chat,
     delete_chat,
-    add_message_to_chat,
 )
 
 
@@ -42,6 +47,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# In-memory registry: session_id -> RAGStore
+_rag_stores: dict[str, RAGStore] = {}
 
 
 # ── Health Check ──────────────────────────────────────────────────────────────
@@ -82,18 +90,58 @@ async def chat_stream(request: ChatRequest):
                 detail=f"Message too long ({len(last_msg.content)} chars). Max: {MAX_INPUT_LENGTH}",
             )
 
+    citations: list[dict] = []
+    rag_used = False
+
+    # RAG context injection
+    if request.session_id and request.session_id in _rag_stores:
+        store = _rag_stores[request.session_id]
+        last_user_msg = next(
+            (m.content for m in reversed(request.messages) if m.role == "user"), ""
+        )
+        retrieved = await store.search(last_user_msg, top_k=4)
+        if retrieved:
+            rag_used = True
+            citations = format_citations(retrieved)
+            context_block = build_context_prompt(retrieved)
+            base_system = context_block + "\n\n" + request.system_prompt
+        else:
+            base_system = request.system_prompt
+    else:
+        base_system = request.system_prompt
+
+    # Prepend mode instruction to system prompt
+    mode_prefix = MODE_PROMPTS.get(request.mode, "")
+    system = f"{mode_prefix}\n\n{base_system}".strip() if mode_prefix else base_system
+
+    # Build reasoning summary
+    reasoning_summary = {
+        "mode": request.mode,
+        "usedUploadedFiles": rag_used,
+        "retrievedChunks": len(citations) if rag_used else 0,
+        "usedFiles": list({c["fileName"] for c in citations}) if rag_used else [],
+        "basis": "uploaded_files" if rag_used else "general_knowledge",
+        "confidence": "high" if rag_used and len(citations) >= 3 else "medium",
+    }
+
     # Build message list with system prompt prepended
-    messages = [{"role": "system", "content": request.system_prompt}]
+    messages = [{"role": "system", "content": system}]
     for msg in request.messages:
         messages.append({"role": msg.role, "content": msg.content})
 
     logger.info(
-        "Chat request: model=%s, temperature=%s, messages=%d",
-        request.model, request.temperature, len(messages),
+        "Chat request: model=%s, mode=%s, temperature=%s, messages=%d",
+        request.model, request.mode, request.temperature, len(messages),
     )
 
     return StreamingResponse(
-        stream_llm(messages, model=request.model, temperature=request.temperature),
+        stream_llm(
+            messages,
+            model=request.model,
+            temperature=request.temperature,
+            citations=citations,
+            reasoning_summary=reasoning_summary,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -101,6 +149,47 @@ async def chat_stream(request: ChatRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ── RAG Upload ────────────────────────────────────────────────────────────────
+
+_ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md"}
+
+
+@app.post("/api/rag/upload")
+async def upload_file(
+    session_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Extract, chunk, embed, and index an uploaded file for a session."""
+    ext = "." + file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else ""
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(400, f"Unsupported file type: {ext or '(none)'}")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Empty file")
+
+    try:
+        pages = extract_text(content, file.filename)
+        chunks = chunk_pages(pages)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+    store = _rag_stores.setdefault(session_id, RAGStore(session_id))
+    await store.add_chunks(chunks)
+
+    logger.info("RAG upload: session=%s, file=%s, chunks=%d", session_id, file.filename, len(chunks))
+    return {"status": "ready", "fileName": file.filename, "chunks": len(chunks)}
+
+
+@app.delete("/api/rag/{session_id}")
+async def clear_rag(session_id: str):
+    """Clear indexed files for a session."""
+    if session_id in _rag_stores:
+        _rag_stores[session_id].clear()
+        del _rag_stores[session_id]
+    return {"status": "cleared"}
 
 
 # ── Chat Sessions CRUD ───────────────────────────────────────────────────────

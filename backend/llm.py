@@ -2,7 +2,6 @@
 
 import time
 from typing import AsyncGenerator
-from collections.abc import AsyncIterator
 
 from langchain_groq import ChatGroq
 from groq import RateLimitError, APIError
@@ -57,6 +56,8 @@ async def stream_llm(
     messages: list[dict],
     model: str = DEFAULT_MODEL,
     temperature: float = DEFAULT_TEMPERATURE,
+    citations: list[dict] | None = None,
+    reasoning_summary: dict | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream tokens from the LLM as Server-Sent Events.
 
@@ -76,13 +77,14 @@ async def stream_llm(
         elapsed = time.time() - start
         logger.info("LLM stream complete: model=%s, time=%.2fs", model, elapsed)
 
-        # Final event with metadata
         done_event = json.dumps({
             "token": "",
             "done": True,
             "metadata": {
                 "model": model,
                 "time": round(elapsed, 2),
+                "citations": citations or [],
+                "reasoning_summary": reasoning_summary or {},
             },
         })
         yield f"data: {done_event}\n\n"

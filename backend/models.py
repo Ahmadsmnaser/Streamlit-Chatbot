@@ -17,6 +17,8 @@ class ChatRequest(BaseModel):
     model: str = Field(default="llama-3.1-8b-instant")
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     system_prompt: str = Field(default="You are a helpful assistant.", max_length=2000)
+    mode: str = Field(default="simple")
+    session_id: str | None = None
 
 
 # ── Chat Session Models ──────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { Mascot } from './Mascot';
 import { detectDir } from '@/lib/utils';
 import { renderMarkdown } from '@/lib/markdown';
 import { UIMessage } from '@/hooks/useChat';
+import { ReasoningSummaryBlock } from './ReasoningSummary';
 
 interface MessageProps {
   msg: UIMessage;
@@ -43,6 +44,24 @@ export function Message({ msg, onRegenerate }: MessageProps) {
             {msg.time != null && <><span className="dot">·</span><span>⏱ {msg.time.toFixed(2)}s</span></>}
             {msg.tokens && <><span className="dot">·</span><span>{msg.tokens} tokens</span></>}
           </div>
+        )}
+
+        {!isUser && msg.citations && msg.citations.length > 0 && (
+          <div className="citations">
+            <div className="citations-label">Sources</div>
+            {msg.citations.map((c, i) => (
+              <div key={i} className="citation-item">
+                <span className="citation-src">
+                  {i + 1}. {c.fileName}{c.pageNumber ? `, page ${c.pageNumber}` : ''}
+                </span>
+                <span className="citation-snippet">"{c.snippet}"</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!isUser && !msg.streaming && msg.reasoningSummary && (
+          <ReasoningSummaryBlock summary={msg.reasoningSummary} />
         )}
 
         {!msg.streaming && (

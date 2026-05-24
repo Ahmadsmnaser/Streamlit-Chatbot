@@ -20,18 +20,41 @@ export interface ChatSession {
   messages?: ChatMessage[];
 }
 
+export interface Citation {
+  fileName: string;
+  pageNumber?: number;
+  chunkIndex?: number;
+  snippet: string;
+}
+
+export interface ReasoningSummary {
+  mode: string;
+  usedUploadedFiles: boolean;
+  retrievedChunks?: number;
+  usedFiles?: string[];
+  basis: 'uploaded_files' | 'general_knowledge' | 'mixed';
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export interface ChatRequest {
   messages: ChatMessage[];
   model: string;
   temperature: number;
   system_prompt: string;
+  mode?: string;
+  session_id?: string;
 }
 
 export interface SSEToken {
   token?: string;
   done?: boolean;
   error?: string;
-  metadata?: { model: string; time: number };
+  metadata?: {
+    model: string;
+    time: number;
+    citations?: Citation[];
+    reasoning_summary?: ReasoningSummary;
+  };
 }
 
 export async function fetchHealth(): Promise<{ status: string }> {
@@ -80,11 +103,45 @@ export async function deleteSession(id: string): Promise<{ status: string; id: s
   return res.json();
 }
 
+export type StreamMetadata = SSEToken['metadata'];
+
+export type UploadStatus = 'idle' | 'uploading' | 'processing' | 'ready' | 'failed';
+
+export interface UploadedFile {
+  fileName: string;
+  chunks: number;
+  status: UploadStatus;
+}
+
+export async function uploadFile(
+  sessionId: string,
+  file: File,
+  onStatus: (s: UploadStatus) => void
+): Promise<UploadedFile> {
+  onStatus('uploading');
+  const form = new FormData();
+  form.append('session_id', sessionId);
+  form.append('file', file);
+  onStatus('processing');
+  const res = await fetch(`${BASE}/api/rag/upload`, { method: 'POST', body: form });
+  if (!res.ok) {
+    onStatus('failed');
+    throw new Error(await res.text());
+  }
+  const data = await res.json();
+  onStatus('ready');
+  return data;
+}
+
+export async function clearRag(sessionId: string): Promise<void> {
+  await fetch(`${BASE}/api/rag/${sessionId}`, { method: 'DELETE' });
+}
+
 export function streamChat(
   request: ChatRequest,
   signal: AbortSignal,
   onToken: (token: string) => void,
-  onDone: (metadata?: { model: string; time: number }) => void,
+  onDone: (metadata?: StreamMetadata) => void,
   onError: (error: string) => void
 ): void {
   // Strip any extra fields from messages before sending

@@ -3,6 +3,24 @@
 import { useState, useRef, useCallback } from 'react';
 import { streamChat, updateSession, ChatMessage } from '@/lib/api';
 
+export type AnswerMode = 'simple' | 'deep' | 'exam' | 'code' | 'interview';
+
+export interface Citation {
+  fileName: string;
+  pageNumber?: number;
+  chunkIndex?: number;
+  snippet: string;
+}
+
+export interface ReasoningSummary {
+  mode: string;
+  usedUploadedFiles: boolean;
+  retrievedChunks?: number;
+  usedFiles?: string[];
+  basis: 'uploaded_files' | 'general_knowledge' | 'mixed';
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export interface UIMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -11,6 +29,10 @@ export interface UIMessage {
   time?: number;
   tokens?: number;
   streaming?: boolean;
+  mode?: AnswerMode;
+  citations?: Citation[];
+  reasoningSummary?: ReasoningSummary;
+  usedRag?: boolean;
 }
 
 interface UseChatOptions {
@@ -18,10 +40,11 @@ interface UseChatOptions {
   temperature: number;
   systemPrompt: string;
   sessionId: string | null;
+  mode: AnswerMode;
   onSessionUpdate?: () => void;
 }
 
-export function useChat({ model, temperature, systemPrompt, sessionId, onSessionUpdate }: UseChatOptions) {
+export function useChat({ model, temperature, systemPrompt, sessionId, mode, onSessionUpdate }: UseChatOptions) {
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
@@ -80,13 +103,21 @@ export function useChat({ model, temperature, systemPrompt, sessionId, onSession
     let accumulated = '';
 
     streamChat(
-      { messages: apiMessages, model, temperature, system_prompt: systemPrompt },
+      {
+        messages: apiMessages,
+        model,
+        temperature,
+        system_prompt: systemPrompt,
+        mode,
+        session_id: sessionId ?? undefined,
+      },
       controller.signal,
       (token) => {
         accumulated += token;
         setStreamingContent(accumulated);
       },
       (metadata) => {
+        const citations = metadata?.citations ?? [];
         const finalMsg: UIMessage = {
           id: streamId,
           role: 'assistant',
@@ -94,6 +125,10 @@ export function useChat({ model, temperature, systemPrompt, sessionId, onSession
           model: metadata?.model ?? model,
           time: metadata?.time,
           tokens: Math.round(accumulated.length / 4),
+          mode,
+          citations,
+          reasoningSummary: metadata?.reasoning_summary,
+          usedRag: citations.length > 0,
         };
         setMessages((prev) => [...prev, finalMsg]);
         setIsStreaming(false);
