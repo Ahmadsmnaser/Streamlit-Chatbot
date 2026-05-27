@@ -1,35 +1,43 @@
 'use client';
 
 import { AnswerMode } from '@/hooks/useChat';
+import { Language, translations } from '@/lib/i18n';
 
-const MODES: { id: AnswerMode; label: string; icon: string; description: string }[] = [
-  { id: 'simple',    label: 'Simple',    icon: '💡', description: 'Clear, beginner-friendly answer' },
-  { id: 'deep',      label: 'Deep',      icon: '🔬', description: 'Technical, in-depth answer' },
-  { id: 'exam',      label: 'Exam',      icon: '📝', description: 'Structured for studying' },
-  { id: 'code',      label: 'Code',      icon: '💻', description: 'Implementation focused, code-first' },
-  { id: 'interview', label: 'Interview', icon: '🎯', description: 'Job interview style answer' },
+const MODES: { id: AnswerMode; icon: string }[] = [
+  { id: 'simple', icon: '💡' },
+  { id: 'deep', icon: '🔬' },
+  { id: 'exam', icon: '📝' },
+  { id: 'code', icon: '💻' },
+  { id: 'interview', icon: '🎯' },
 ];
 
 interface ModeSelectorProps {
   value: AnswerMode;
   onChange: (mode: AnswerMode) => void;
+  lang: Language;
 }
 
-export function ModeSelector({ value, onChange }: ModeSelectorProps) {
+export function ModeSelector({ value, onChange, lang }: ModeSelectorProps) {
+  const t = translations[lang];
+
   return (
-    <div className="mode-selector" role="group" aria-label="Answer mode">
-      {MODES.map((m) => (
-        <button
-          key={m.id}
-          className={`mode-btn ${value === m.id ? 'active' : ''}`}
-          onClick={() => onChange(m.id)}
-          title={m.description}
-          aria-pressed={value === m.id}
-        >
-          <span className="mode-icon" aria-hidden="true">{m.icon}</span>
-          <span className="mode-label">{m.label}</span>
-        </button>
-      ))}
+    <div className="mode-selector" role="group" aria-label={t.howPrepared}>
+      {MODES.map((m) => {
+        const modeText = t.modes[m.id];
+
+        return (
+          <button
+            key={m.id}
+            className={`mode-btn ${value === m.id ? 'active' : ''}`}
+            onClick={() => onChange(m.id)}
+            title={modeText.desc}
+            aria-pressed={value === m.id}
+          >
+            <span className="mode-icon" aria-hidden="true">{m.icon}</span>
+            <span className="mode-label">{modeText.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

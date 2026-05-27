@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserSettings } from '@/hooks/useSettings';
 import { translations, Language } from '@/lib/i18n';
+import { fetchModels, Model } from '@/lib/api';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -38,7 +39,12 @@ export function SettingsModal({
   onExport,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'general' | 'model' | 'data'>('general');
+  const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const t = translations[settings.lang];
+
+  useEffect(() => {
+    fetchModels().then(setAvailableModels).catch(() => {});
+  }, []);
 
   if (!isOpen) return null;
 
@@ -153,17 +159,20 @@ export function SettingsModal({
             {activeTab === 'model' && (
               <div className="settings-group">
                 <div className="setting-field">
-                  <label htmlFor="model-select">{t.model}</label>
-                  <select
-                    id="model-select"
-                    className="select-input"
-                    value={model}
-                    onChange={(e) => onModelChange(e.target.value)}
-                  >
-                    <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
-                    <option value="mixtral-8x7b-32768">Mixtral 8×7B</option>
-                  </select>
+                  <label>{t.model}</label>
+                  <div className="model-list">
+                    {availableModels.map((m) => (
+                      <button
+                        key={m.id}
+                        className={`model-option ${model === m.id ? 'active' : ''}`}
+                        onClick={() => onModelChange(m.id)}
+                        type="button"
+                      >
+                        <span className="model-option-name">{m.name}</span>
+                        <span className="model-option-desc">{m.description}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="setting-field">

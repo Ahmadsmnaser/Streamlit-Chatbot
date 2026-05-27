@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { detectDir } from '@/lib/utils';
+import { Language } from '@/lib/i18n';
 import { ModeSelector } from './ModeSelector';
 import { AnswerMode } from '@/hooks/useChat';
 import { UploadedFile } from '@/hooks/useRag';
@@ -17,9 +18,10 @@ interface InputDockProps {
   uploadedFiles?: UploadedFile[];
   onRemoveFile?: (fileName: string) => void;
   hasMessages?: boolean;
+  lang: Language;
 }
 
-export function InputDock({ value, onChange, onSend, disabled, mode, onModeChange, onFileSelect, uploadedFiles, onRemoveFile, hasMessages }: InputDockProps) {
+export function InputDock({ value, onChange, onSend, disabled, mode, onModeChange, onFileSelect, uploadedFiles, onRemoveFile, hasMessages, lang }: InputDockProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dir = detectDir(value);
@@ -70,7 +72,7 @@ export function InputDock({ value, onChange, onSend, disabled, mode, onModeChang
             ))}
           </div>
         )}
-        {!hasMessages && <ModeSelector value={mode} onChange={onModeChange} />}
+        {!hasMessages && <ModeSelector value={mode} onChange={onModeChange} lang={lang} />}
         <div className="input-shell">
           <input
             type="file"

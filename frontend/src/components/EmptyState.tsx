@@ -27,7 +27,7 @@ export function EmptyState({ onSuggest, lang = 'en' }: EmptyStateProps) {
   const t = translations[lang];
   const list = SUGGESTIONS[lang] || SUGGESTIONS.en;
 
-  const headline = lang === 'ar' ? 'مرحباً، كيف يمكنني مساعدتك؟' : 'Hi, how can I help you today?';
+  const headline = lang === 'ar' ? 'مرحباً، كيف يُمكنني مساعدتك؟' : 'Hi, how can I help you today?';
   const subline = lang === 'ar' ? 'اختر أحد الاقتراحات أو اكتب سؤالك في الأسفل.' : 'Pick a starter or just type below.';
 
   return (

@@ -7,7 +7,7 @@ export const translations = {
     newChat: "New Chat",
     recentChats: "Recent chats",
     noChats: "No chats yet. Start a new one!",
-    inputPlaceholder: "Ask anything...",
+    inputPlaceholder: "Ask me anything...",
     send: "Send",
     settings: "Settings",
     tabGeneral: "General",
@@ -36,6 +36,19 @@ export const translations = {
     themeLight: "Light",
     themeDark: "Dark",
     themeSystem: "System",
+    uploading: "Uploading...",
+    processing: "Processing...",
+    chunks: "chunks",
+    failed: "Failed",
+    removeFile: "Remove file",
+    inputHint: "to send · Shift+⏎ for new line",
+    modes: {
+      simple: { label: "Simple", desc: "Clear, beginner-friendly answer" },
+      deep: { label: "Deep", desc: "Technical, in-depth answer" },
+      exam: { label: "Exam", desc: "Structured for studying" },
+      code: { label: "Code", desc: "Implementation focused, code-first" },
+      interview: { label: "Interview", desc: "Job interview style answer" }
+    }
   },
   ar: {
     brandName: "بوت أحمد للمحادثة",
@@ -43,7 +56,7 @@ export const translations = {
     newChat: "محادثة جديدة",
     recentChats: "المحادثات الأخيرة",
     noChats: "لا توجد محادثات بعد. ابدأ واحدة جديدة!",
-    inputPlaceholder: "اسأل عن أي شيء...",
+    inputPlaceholder: "اسألني عن أي شيء...",
     send: "إرسال",
     settings: "الإعدادات",
     tabGeneral: "عام",
@@ -72,5 +85,18 @@ export const translations = {
     themeLight: "فاتح",
     themeDark: "داكن",
     themeSystem: "النظام",
+    uploading: "جاري الرفع...",
+    processing: "جاري المعالجة...",
+    chunks: "فقرات مسترجعة",
+    failed: "فشل",
+    removeFile: "حذف الملف",
+    inputHint: "للإرسال · Shift+⏎ لسطر جديد",
+    modes: {
+      simple: { label: "بسيط", desc: "إجابة واضحة وسهلة للمبتدئين" },
+      deep: { label: "عميق", desc: "إجابة تقنية وعميقة" },
+      exam: { label: "دراسة", desc: "إجابة منظمة للمذاكرة والدراسة" },
+      code: { label: "برمجية", desc: "إجابة برمجية مع كود مباشر" },
+      interview: { label: "مقابلة", desc: "إجابة بأسلوب المقابلات الوظيفية" }
+    }
   }
 };

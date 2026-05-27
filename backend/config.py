@@ -29,17 +29,52 @@ AVAILABLE_MODELS: list[dict] = [
     {
         "id": "llama-3.1-8b-instant",
         "name": "Llama 3.1 8B Instant",
-        "description": "Fast and efficient, great for most tasks",
+        "description": "Best for speed — fastest responses for everyday questions",
     },
     {
         "id": "llama-3.3-70b-versatile",
         "name": "Llama 3.3 70B Versatile",
-        "description": "Larger model, better reasoning and quality",
+        "description": "Best all-rounder — strong reasoning, writing, and analysis",
+    },
+    {
+        "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "name": "Llama 4 Scout 17B",
+        "description": "Best for long documents — 10M token context window",
     },
     {
         "id": "mixtral-8x7b-32768",
         "name": "Mixtral 8x7B",
-        "description": "Mixture-of-experts model with 32K context",
+        "description": "Best for multilingual — strong across many languages with 32K context",
+    },
+    {
+        "id": "qwen/qwen3-32b",
+        "name": "Qwen3 32B",
+        "description": "Best for reading files — deep comprehension and structured extraction",
+    },
+    {
+        "id": "groq/compound",
+        "name": "Groq Compound",
+        "description": "Best for complex tasks — multi-step reasoning and tool use",
+    },
+    {
+        "id": "groq/compound-mini",
+        "name": "Groq Compound Mini",
+        "description": "Best for quick reasoning — compound intelligence at faster speed",
+    },
+    {
+        "id": "openai/gpt-oss-120b",
+        "name": "GPT OSS 120B",
+        "description": "Best for accuracy — OpenAI's largest open-source model",
+    },
+    {
+        "id": "openai/gpt-oss-20b",
+        "name": "GPT OSS 20B",
+        "description": "Best balance — OpenAI quality at a lighter, faster size",
+    },
+    {
+        "id": "allam-2-7b",
+        "name": "ALLaM 2 7B",
+        "description": "Best for Arabic — purpose-built for Arabic language and culture",
     },
 ]
 

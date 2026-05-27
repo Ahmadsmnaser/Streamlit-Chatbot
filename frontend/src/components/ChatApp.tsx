@@ -327,6 +327,7 @@ export function ChatApp() {
           uploadedFiles={uploadedFiles}
           onRemoveFile={removeRagFile}
           hasMessages={messages.length > 0}
+          lang={settings.lang}
         />
       </main>
 
