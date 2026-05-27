@@ -129,11 +129,11 @@ input, textarea { font-family: inherit; color: inherit; }
 .chat-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 12px; cursor: pointer; position: relative; margin-bottom: 2px; transition: background 150ms, transform 150ms; }
 .chat-item:hover { background: var(--surface-hover); transform: translateY(-1px); }
 .chat-item.active { background: linear-gradient(135deg, rgba(184,164,227,0.18), rgba(244,194,215,0.12)); }
-.chat-item.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--primary-grad); }
-.chat-item-body { flex: 1; min-width: 0; }
-.chat-item-title { font-size: 13.5px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
-.chat-item-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; display: flex; gap: 6px; }
-.chat-item .delete-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); opacity: 0; transition: opacity 150ms, background 150ms, color 150ms; }
+.chat-item.active::before { content: ''; position: absolute; inset-inline-start: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--primary-grad); }
+.chat-item-body { flex: 1; min-width: 0; padding-inline-end: 34px; }
+.chat-item-title { font-size: 13.5px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; text-align: left; }
+.chat-item-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; display: flex; gap: 6px; text-align: left; }
+.chat-item .delete-btn { position: absolute; inset-inline-end: 8px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); opacity: 0; transition: opacity 150ms, background 150ms, color 150ms; }
 .chat-item:hover .delete-btn { opacity: 1; }
 .chat-item .delete-btn:hover { background: rgba(229,99,99,0.12); color: #d95757; }
 
@@ -445,6 +445,20 @@ input, textarea { font-family: inherit; color: inherit; }
 /* Apply Arabic Typeface globally when dir="rtl" */
 .app[dir="rtl"] {
   font-family: 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+.app[dir="rtl"] .chat-item.active::before {
+  inset-inline-start: 0;
+}
+.app[dir="rtl"] .chat-item-body {
+  padding-inline-end: 34px;
+}
+.app[dir="rtl"] .chat-item-title,
+.app[dir="rtl"] .chat-item-meta {
+  text-align: right;
+}
+.app[dir="rtl"] .chat-item .delete-btn {
+  inset-inline-end: 8px;
 }
 
 /* RTL Navigation Dots Correction */
