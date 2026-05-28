@@ -14,6 +14,7 @@ interface TopbarProps {
   onThemeModeChange: (v: ThemeMode) => void;
   onMobileMenu?: () => void;
   onDelete?: () => void;
+  hasMessages: boolean;
   onSettingsOpen: () => void;
   lang: Language;
   user?: Session['user'];
@@ -29,6 +30,7 @@ export function Topbar({
   onThemeModeChange,
   onMobileMenu,
   onDelete,
+  hasMessages,
   onSettingsOpen,
   lang,
   user,
@@ -36,17 +38,16 @@ export function Topbar({
   nickname,
   onNicknameChange,
 }: TopbarProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
 
+  const deleteDisabled = !onDelete || !hasMessages;
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) setThemeMenuOpen(false);
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
     }
@@ -69,7 +70,7 @@ export function Topbar({
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        
+
         {/* Settings button in the top left corner (shown when sidebar is collapsed/mobile) */}
         <button
           className="icon-btn topbar-settings-btn"
@@ -123,8 +124,6 @@ export function Topbar({
             </div>
           )}
         </div>
-
-
 
         <div style={{ position: 'relative' }} ref={userMenuRef}>
           <button className="user-chip" onClick={() => setUserMenuOpen((o) => !o)} aria-label="Account menu">
@@ -182,29 +181,20 @@ export function Topbar({
           )}
         </div>
 
-        <div style={{ position: 'relative' }} ref={menuRef}>
-          <button className="icon-btn" onClick={() => setMenuOpen((o) => !o)} aria-label="More options">
-            <svg width="18" height="18" viewBox="0 0 24 24" className="icon-stroke" aria-hidden="true">
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-              <circle cx="5" cy="12" r="1" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <div className="menu">
-              {onDelete && (
-                <button className="menu-item" style={{ color: '#d95757' }} onClick={() => { onDelete(); setMenuOpen(false); }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" className="icon-stroke" aria-hidden="true">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" />
-                  </svg>
-                  {t.deleteChat}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <button
+          className="icon-btn topbar-delete-btn"
+          onClick={onDelete}
+          disabled={deleteDisabled}
+          aria-label={t.deleteChat}
+          title={deleteDisabled ? undefined : t.deleteChat}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" className="icon-stroke" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+        </button>
       </div>
     </header>
   );

@@ -192,6 +192,8 @@ input, textarea { font-family: inherit; color: inherit; }
 .icon-btn { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); transition: background 150ms, color 150ms, transform 150ms; }
 .icon-btn:hover { background: var(--surface-hover); color: var(--text); transform: translateY(-2px); }
 .icon-btn:active { transform: scale(0.97); }
+.topbar-delete-btn:not(:disabled):hover { color: #d95757; background: color-mix(in srgb, #d95757 10%, var(--surface-hover)); }
+.topbar-delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .theme-switch-icon { position: relative; width: 20px; height: 20px; display: inline-block; }
 .theme-switch-icon svg { position: absolute; inset: 0; transition: opacity 300ms, transform 300ms; }
 .theme-switch-icon .sun { opacity: 1; transform: rotate(0deg) scale(1); }

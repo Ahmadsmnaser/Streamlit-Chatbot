@@ -322,7 +322,8 @@ export function ChatApp() {
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
           onMobileMenu={() => setMobileOpen(true)}
-          onDelete={activeSessionId ? () => handleDeleteSession(activeSessionId) : undefined}
+          onDelete={activeSessionId ? () => { if (window.confirm(t.deleteChatConfirm)) handleDeleteSession(activeSessionId); } : undefined}
+          hasMessages={messages.length > 0}
           onSettingsOpen={() => setSettingsOpen(true)}
           lang={settings.lang}
           user={session.user}
