@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import ALLOWED_ORIGINS, AVAILABLE_MODELS, MAX_INPUT_LENGTH, logger
+from config import ALLOWED_ORIGIN_REGEX, ALLOWED_ORIGINS, AVAILABLE_MODELS, MAX_INPUT_LENGTH, logger
 from auth import get_current_user
 from database import AsyncSessionLocal, get_db, init_db
 from models import (
@@ -52,6 +52,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

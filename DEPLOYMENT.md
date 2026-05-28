@@ -45,6 +45,8 @@ GROQ_API_KEY=...
 DATABASE_URL=postgresql://...neon...?...sslmode=require
 GOOGLE_CLIENT_ID=...
 ALLOWED_ORIGINS=http://localhost:3000,https://YOUR-VERCEL-DOMAIN.vercel.app
+# Optional: allow Vercel preview/deployment URLs for this project.
+ALLOWED_ORIGIN_REGEX=https://ahmadchat-[a-z0-9-]+-ahmad-nasers-projects\.vercel\.app
 ```
 
 The Docker command runs Alembic migrations before starting FastAPI.

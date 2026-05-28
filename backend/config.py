@@ -24,13 +24,14 @@ if not GROQ_API_KEY:
 # ── CORS ──────────────────────────────────────────────────────────────────────
 FRONTEND_ORIGIN: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 ALLOWED_ORIGINS: list[str] = [
-    origin.strip()
+    origin.strip().rstrip("/")
     for origin in os.getenv(
         "ALLOWED_ORIGINS",
         f"{FRONTEND_ORIGIN},http://localhost:3000,http://localhost:3001",
     ).split(",")
     if origin.strip()
 ]
+ALLOWED_ORIGIN_REGEX: str | None = os.getenv("ALLOWED_ORIGIN_REGEX")
 
 # ── Database ──────────────────────────────────────────────────────────────────
 DATA_DIR: str = os.path.join(BASE_DIR, "data")
