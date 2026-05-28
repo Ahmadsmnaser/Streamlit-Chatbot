@@ -36,6 +36,7 @@ export interface UIMessage {
 }
 
 interface UseChatOptions {
+  accessToken?: string;
   model: string;
   temperature: number;
   systemPrompt: string;
@@ -45,7 +46,7 @@ interface UseChatOptions {
   onStreamDone?: () => void;
 }
 
-export function useChat({ model, temperature, systemPrompt, sessionId, mode, onSessionUpdate, onStreamDone }: UseChatOptions) {
+export function useChat({ accessToken, model, temperature, systemPrompt, sessionId, mode, onSessionUpdate, onStreamDone }: UseChatOptions) {
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
@@ -67,8 +68,8 @@ export function useChat({ model, temperature, systemPrompt, sessionId, mode, onS
   }, []);
 
   const sendMessage = useCallback(
-    (content: string) => {
-      if (!content.trim() || isStreaming) return;
+    (content: string, sessionIdOverride?: string) => {
+      if (!content.trim() || isStreaming || !accessToken) return;
 
       const userMsg: UIMessage = {
         id: `u-${Date.now()}`,
@@ -80,13 +81,13 @@ export function useChat({ model, temperature, systemPrompt, sessionId, mode, onS
       // inside a state setter (React StrictMode calls updaters twice).
       const nextMessages = [...messages, userMsg];
       setMessages(nextMessages);
-      startStream(nextMessages);
+      startStream(nextMessages, sessionIdOverride ?? sessionId);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isStreaming, messages, model, temperature, systemPrompt, sessionId]
+    [accessToken, isStreaming, messages, model, temperature, systemPrompt, sessionId]
   );
 
-  function startStream(currentMessages: UIMessage[]) {
+  function startStream(currentMessages: UIMessage[], targetSessionId: string | null = sessionId) {
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -104,13 +105,14 @@ export function useChat({ model, temperature, systemPrompt, sessionId, mode, onS
     let accumulated = '';
 
     streamChat(
+      accessToken,
       {
         messages: apiMessages,
         model,
         temperature,
         system_prompt: systemPrompt,
         mode,
-        session_id: sessionId ?? undefined,
+        session_id: targetSessionId ?? undefined,
       },
       controller.signal,
       (token) => {
@@ -137,9 +139,9 @@ export function useChat({ model, temperature, systemPrompt, sessionId, mode, onS
         onStreamDone?.();
 
         // Persist to backend
-        if (sessionId) {
+        if (targetSessionId) {
           const saved: ChatMessage[] = [...apiMessages, { role: 'assistant', content: accumulated }];
-          updateSession(sessionId, { messages: saved }).then(() => {
+          updateSession(accessToken, targetSessionId, { messages: saved }).then(() => {
             onSessionUpdate?.();
           });
         }
@@ -179,7 +181,7 @@ export function useChat({ model, temperature, systemPrompt, sessionId, mode, onS
       const idx = [...prev].reverse().findIndex((m) => m.role === 'assistant');
       if (idx === -1) return prev;
       const without = prev.slice(0, prev.length - 1 - idx);
-      startStream(without);
+      startStream(without, sessionId);
       return without;
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

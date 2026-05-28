@@ -8,3 +8,9 @@ pypdf
 chromadb
 sentence-transformers
 python-multipart
+sqlalchemy[asyncio]
+asyncpg
+aiosqlite
+alembic
+google-auth
+python-jose[cryptography]

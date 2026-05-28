@@ -3,11 +3,14 @@
 Provides REST + SSE endpoints for the Next.js frontend.
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import AVAILABLE_MODELS, FRONTEND_ORIGIN, MAX_INPUT_LENGTH, logger
+from config import ALLOWED_ORIGINS, AVAILABLE_MODELS, MAX_INPUT_LENGTH, logger
+from auth import get_current_user
+from database import AsyncSessionLocal, get_db, init_db
 from models import (
     ChatRequest,
     ChatSessionCreate,
@@ -16,20 +19,25 @@ from models import (
     ChatSessionDetail,
     ModelInfo,
     ModeConfigResponse,
+    UserSettingsPayload,
+    UserSettingsResponse,
 )
 from llm import stream_llm
+from models_db import User
 from services.modes import MODES, get_mode
 from services.rag.extractor import extract_text
 from services.rag.chunker import chunk_pages
 from services.rag.store import RAGStore
 from services.rag.context_builder import build_context_prompt
 from services.rag.citation_formatter import format_citations
+from settings_store import get_user_settings, settings_to_dict, update_user_settings
 from chat_store import (
     list_chats,
     create_chat,
     get_chat,
     update_chat,
     delete_chat,
+    migrate_legacy_chats,
 )
 
 
@@ -43,14 +51,25 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN, "http://localhost:3000", "http://localhost:3001"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# In-memory registry: session_id -> RAGStore
+# In-memory registry: user_id:session_id -> RAGStore
 _rag_stores: dict[str, RAGStore] = {}
+
+
+def _rag_key(user_id: str, session_id: str) -> str:
+    return f"{user_id}:{session_id}"
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    await init_db()
+    async with AsyncSessionLocal() as db:
+        await migrate_legacy_chats(db)
 
 
 # ── Health Check ──────────────────────────────────────────────────────────────
@@ -89,7 +108,7 @@ async def get_modes():
 # ── Chat (Streaming) ─────────────────────────────────────────────────────────
 
 @app.post("/api/chat")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(request: ChatRequest, current_user: User = Depends(get_current_user)):
     """Stream a chat response as Server-Sent Events.
 
     The client sends the full message history and receives streamed tokens.
@@ -114,8 +133,9 @@ async def chat_stream(request: ChatRequest):
     rag_used = False
 
     # RAG context injection using mode-specific top_k
-    if request.session_id and request.session_id in _rag_stores:
-        store = _rag_stores[request.session_id]
+    rag_key = _rag_key(current_user.id, request.session_id) if request.session_id else None
+    if rag_key and rag_key in _rag_stores:
+        store = _rag_stores[rag_key]
         last_user_msg = next(
             (m.content for m in reversed(request.messages) if m.role == "user"), ""
         )
@@ -181,6 +201,7 @@ _ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md"}
 async def upload_file(
     session_id: str = Form(...),
     file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
 ):
     """Extract, chunk, embed, and index an uploaded file for a session."""
     ext = "." + file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else ""
@@ -197,7 +218,8 @@ async def upload_file(
     except ValueError as e:
         raise HTTPException(422, str(e))
 
-    store = _rag_stores.setdefault(session_id, RAGStore(session_id))
+    rag_key = _rag_key(current_user.id, session_id)
+    store = _rag_stores.setdefault(rag_key, RAGStore(rag_key))
     await store.add_chunks(chunks)
 
     logger.info("RAG upload: session=%s, file=%s, chunks=%d", session_id, file.filename, len(chunks))
@@ -205,35 +227,47 @@ async def upload_file(
 
 
 @app.delete("/api/rag/{session_id}")
-async def clear_rag(session_id: str):
+async def clear_rag(session_id: str, current_user: User = Depends(get_current_user)):
     """Clear indexed files for a session."""
-    if session_id in _rag_stores:
-        _rag_stores[session_id].clear()
-        del _rag_stores[session_id]
+    rag_key = _rag_key(current_user.id, session_id)
+    if rag_key in _rag_stores:
+        _rag_stores[rag_key].clear()
+        del _rag_stores[rag_key]
     return {"status": "cleared"}
 
 
 # ── Chat Sessions CRUD ───────────────────────────────────────────────────────
 
 @app.get("/api/chats", response_model=list[ChatSessionResponse])
-async def list_chat_sessions():
+async def list_chat_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """List all chat sessions, sorted newest first."""
-    return list_chats()
+    return await list_chats(db, user_id=current_user.id)
 
 
 @app.post("/api/chats", response_model=ChatSessionDetail, status_code=201)
-async def create_chat_session(body: ChatSessionCreate | None = None):
+async def create_chat_session(
+    body: ChatSessionCreate | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Create a new empty chat session."""
     title = body.title if body else "New Chat"
-    data = create_chat(title=title)
+    data = await create_chat(db, title=title, user_id=current_user.id)
     data["message_count"] = len(data.get("messages", []))
     return data
 
 
 @app.get("/api/chats/{chat_id}", response_model=ChatSessionDetail)
-async def get_chat_session(chat_id: str):
+async def get_chat_session(
+    chat_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get a chat session by ID, including all messages."""
-    data = get_chat(chat_id)
+    data = await get_chat(db, chat_id, user_id=current_user.id)
     if data is None:
         raise HTTPException(status_code=404, detail="Chat not found")
     data["message_count"] = len(data.get("messages", []))
@@ -241,13 +275,18 @@ async def get_chat_session(chat_id: str):
 
 
 @app.put("/api/chats/{chat_id}", response_model=ChatSessionDetail)
-async def update_chat_session(chat_id: str, body: ChatSessionUpdate):
+async def update_chat_session(
+    chat_id: str,
+    body: ChatSessionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Update a chat session's title and/or messages."""
     messages_dicts = None
     if body.messages is not None:
         messages_dicts = [m.model_dump() for m in body.messages]
 
-    data = update_chat(chat_id, title=body.title, messages=messages_dicts)
+    data = await update_chat(db, chat_id, title=body.title, messages=messages_dicts, user_id=current_user.id)
     if data is None:
         raise HTTPException(status_code=404, detail="Chat not found")
     data["message_count"] = len(data.get("messages", []))
@@ -255,9 +294,34 @@ async def update_chat_session(chat_id: str, body: ChatSessionUpdate):
 
 
 @app.delete("/api/chats/{chat_id}")
-async def delete_chat_session(chat_id: str):
+async def delete_chat_session(
+    chat_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Delete a chat session."""
-    deleted = delete_chat(chat_id)
+    deleted = await delete_chat(db, chat_id, user_id=current_user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Chat not found")
     return {"status": "deleted", "id": chat_id}
+
+
+# ── User Settings ─────────────────────────────────────────────────────────────
+
+@app.get("/api/settings", response_model=UserSettingsResponse)
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    settings = await get_user_settings(db, current_user.id)
+    return settings_to_dict(settings)
+
+
+@app.put("/api/settings", response_model=UserSettingsResponse)
+async def put_settings(
+    body: UserSettingsPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    settings = await update_user_settings(db, current_user.id, body.model_dump(exclude_unset=True))
+    return settings_to_dict(settings)

@@ -30,6 +30,13 @@ export interface ChatSession {
   messages?: ChatMessage[];
 }
 
+export interface UserSettings {
+  lang: 'en' | 'ar';
+  fontSize: 'small' | 'medium' | 'large';
+  nickname: string;
+  soundsEnabled: boolean;
+}
+
 export interface Citation {
   fileName: string;
   pageNumber?: number;
@@ -67,55 +74,91 @@ export interface SSEToken {
   };
 }
 
+function authHeaders(accessToken?: string, json = false): HeadersInit {
+  const headers: Record<string, string> = {};
+  if (json) headers['Content-Type'] = 'application/json';
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  return headers;
+}
+
+async function parseJson<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function fetchHealth(): Promise<{ status: string }> {
   const res = await fetch(`${BASE}/api/health`);
-  return res.json();
+  return parseJson(res);
 }
 
 export async function fetchModels(): Promise<Model[]> {
   const res = await fetch(`${BASE}/api/models`);
-  return res.json();
+  return parseJson(res);
 }
 
 export async function fetchModes(): Promise<Record<string, ModeConfig>> {
   const res = await fetch(`${BASE}/api/modes`);
-  return res.json();
+  return parseJson(res);
 }
 
-export async function fetchSessions(): Promise<ChatSession[]> {
-  const res = await fetch(`${BASE}/api/chats`);
-  return res.json();
+export async function fetchSessions(accessToken?: string): Promise<ChatSession[]> {
+  const res = await fetch(`${BASE}/api/chats`, { headers: authHeaders(accessToken) });
+  return parseJson(res);
 }
 
-export async function createSession(title?: string): Promise<ChatSession> {
+export async function createSession(accessToken?: string, title?: string): Promise<ChatSession> {
   const res = await fetch(`${BASE}/api/chats`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(accessToken, true),
     body: JSON.stringify({ title: title ?? 'New Chat' }),
   });
-  return res.json();
+  return parseJson(res);
 }
 
-export async function fetchSession(id: string): Promise<ChatSession> {
-  const res = await fetch(`${BASE}/api/chats/${id}`);
-  return res.json();
+export async function fetchSession(accessToken: string | undefined, id: string): Promise<ChatSession> {
+  const res = await fetch(`${BASE}/api/chats/${id}`, { headers: authHeaders(accessToken) });
+  return parseJson(res);
 }
 
 export async function updateSession(
+  accessToken: string | undefined,
   id: string,
   data: { title?: string; messages?: ChatMessage[] }
 ): Promise<ChatSession> {
   const res = await fetch(`${BASE}/api/chats/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(accessToken, true),
     body: JSON.stringify(data),
   });
-  return res.json();
+  return parseJson(res);
 }
 
-export async function deleteSession(id: string): Promise<{ status: string; id: string }> {
-  const res = await fetch(`${BASE}/api/chats/${id}`, { method: 'DELETE' });
-  return res.json();
+export async function deleteSession(accessToken: string | undefined, id: string): Promise<{ status: string; id: string }> {
+  const res = await fetch(`${BASE}/api/chats/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken),
+  });
+  return parseJson(res);
+}
+
+export async function fetchSettings(accessToken?: string): Promise<UserSettings> {
+  const res = await fetch(`${BASE}/api/settings`, { headers: authHeaders(accessToken) });
+  return parseJson(res);
+}
+
+export async function updateSettingsApi(
+  accessToken: string | undefined,
+  data: Partial<UserSettings>
+): Promise<UserSettings> {
+  const res = await fetch(`${BASE}/api/settings`, {
+    method: 'PUT',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify(data),
+  });
+  return parseJson(res);
 }
 
 export type StreamMetadata = SSEToken['metadata'];
@@ -129,6 +172,7 @@ export interface UploadedFile {
 }
 
 export async function uploadFile(
+  accessToken: string | undefined,
   sessionId: string,
   file: File,
   onStatus: (s: UploadStatus) => void
@@ -138,7 +182,11 @@ export async function uploadFile(
   form.append('session_id', sessionId);
   form.append('file', file);
   onStatus('processing');
-  const res = await fetch(`${BASE}/api/rag/upload`, { method: 'POST', body: form });
+  const res = await fetch(`${BASE}/api/rag/upload`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: form,
+  });
   if (!res.ok) {
     onStatus('failed');
     throw new Error(await res.text());
@@ -148,23 +196,27 @@ export async function uploadFile(
   return data;
 }
 
-export async function clearRag(sessionId: string): Promise<void> {
-  await fetch(`${BASE}/api/rag/${sessionId}`, { method: 'DELETE' });
+export async function clearRag(accessToken: string | undefined, sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/rag/${sessionId}`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(await res.text());
 }
 
 export function streamChat(
+  accessToken: string | undefined,
   request: ChatRequest,
   signal: AbortSignal,
   onToken: (token: string) => void,
   onDone: (metadata?: StreamMetadata) => void,
   onError: (error: string) => void
 ): void {
-  // Strip any extra fields from messages before sending
   const cleanMessages = request.messages.map(({ role, content }) => ({ role, content }));
 
   fetch(`${BASE}/api/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(accessToken, true),
     body: JSON.stringify({ ...request, messages: cleanMessages }),
     signal,
   })

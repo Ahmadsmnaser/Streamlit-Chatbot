@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { signOut, useSession } from 'next-auth/react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Message, StreamingMessage } from './Message';
@@ -13,6 +14,8 @@ import { MessageNavDots } from './MessageNavDots';
 import { useSettings } from '@/hooks/useSettings';
 import { translations } from '@/lib/i18n';
 import { SettingsModal } from './SettingsModal';
+import { SignInPage } from './SignInPage';
+import { Mascot } from './Mascot';
 import { fetchSession, fetchModes, ModeConfig } from '@/lib/api';
 
 type ThemeMode = 'light' | 'dark' | 'system';
@@ -22,6 +25,9 @@ const DEFAULT_TEMP = 0.5;
 const DEFAULT_SYSTEM = 'You are a helpful assistant.';
 
 export function ChatApp() {
+  const { data: session, status } = useSession();
+  const accessToken = session?.accessToken;
+
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
@@ -36,7 +42,7 @@ export function ChatApp() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { settings, updateSettings, loaded: settingsLoaded } = useSettings();
+  const { settings, updateSettings, loaded: settingsLoaded } = useSettings(accessToken);
   const t = translations[settings.lang];
 
   // Synth bubble sound generator using Web Audio API
@@ -102,15 +108,16 @@ export function ChatApp() {
   const {
     sessions, activeSessionId, refresh: refreshSessions,
     createNewSession, loadSession, removeSession, renameSession,
-  } = useChatSessions();
+  } = useChatSessions(accessToken);
 
-  const { files: uploadedFiles, upload: uploadFile, remove: removeRagFile } = useRag(activeSessionId);
+  const { files: uploadedFiles, upload: uploadFile, remove: removeRagFile } = useRag(activeSessionId, accessToken);
 
   const {
     messages, isStreaming, streamingContent,
     sendMessage, cancelStream, regenerate,
     loadMessages, clearMessages,
   } = useChat({
+    accessToken,
     model, temperature, systemPrompt,
     sessionId: activeSessionId,
     mode,
@@ -198,7 +205,7 @@ export function ChatApp() {
     if (!activeSessionId) {
       createNewSession(text.slice(0, 60)).then((session) => {
         setChatTitle(session.title);
-        sendMessage(text);
+        sendMessage(text, session.id);
       });
     } else {
       sendMessage(text);
@@ -237,7 +244,8 @@ export function ChatApp() {
       const fullSessions = await Promise.all(
         sessions.map(async (s) => {
           try {
-            return await fetchSession(s.id);
+            if (!accessToken) return s;
+            return await fetchSession(accessToken, s.id);
           } catch {
             return s;
           }
@@ -254,9 +262,27 @@ export function ChatApp() {
     } catch (e) {
       console.error('Failed to export sessions', e);
     }
-  }, [sessions]);
+  }, [accessToken, sessions]);
 
   const showEmpty = messages.length === 0 && !isStreaming;
+
+  if (status === 'loading' || (status === 'authenticated' && !settingsLoaded)) {
+    return (
+      <main className="signin-page">
+        <section className="signin-panel compact">
+          <Mascot size={44} />
+          <div className="signin-copy">
+            <h1>Ahmad's Chatbot</h1>
+            <p>Loading your workspace...</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (status !== 'authenticated' || !accessToken) {
+    return <SignInPage />;
+  }
 
   return (
     <div
@@ -299,6 +325,8 @@ export function ChatApp() {
           onDelete={activeSessionId ? () => handleDeleteSession(activeSessionId) : undefined}
           onSettingsOpen={() => setSettingsOpen(true)}
           lang={settings.lang}
+          user={session.user}
+          onSignOut={() => signOut()}
         />
 
         <MessageNavDots messages={messages} />

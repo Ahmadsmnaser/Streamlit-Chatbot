@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Language } from '../lib/i18n';
+import { fetchSettings, updateSettingsApi } from '@/lib/api';
 
 export interface UserSettings {
   lang: Language;
@@ -15,29 +16,48 @@ const DEFAULT_SETTINGS: UserSettings = {
   soundsEnabled: true,
 };
 
-export function useSettings() {
+export function useSettings(accessToken?: string) {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('chatbot_user_settings');
-    if (saved) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
-      } catch (e) {
-        console.error('Failed to parse settings', e);
-      }
-    }
-    setLoaded(true);
-  }, []);
+    let cancelled = false;
 
-  const updateSettings = (updates: Partial<UserSettings>) => {
+    if (!accessToken) {
+      setSettings(DEFAULT_SETTINGS);
+      setLoaded(false);
+      return;
+    }
+
+    setLoaded(false);
+    fetchSettings(accessToken)
+      .then((serverSettings) => {
+        if (!cancelled) setSettings({ ...DEFAULT_SETTINGS, ...serverSettings });
+      })
+      .catch((e) => {
+        console.error('Failed to fetch settings', e);
+        if (!cancelled) setSettings(DEFAULT_SETTINGS);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  const updateSettings = useCallback((updates: Partial<UserSettings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...updates };
-      localStorage.setItem('chatbot_user_settings', JSON.stringify(next));
+      if (accessToken) {
+        updateSettingsApi(accessToken, updates).catch((e) => {
+          console.error('Failed to save settings', e);
+        });
+      }
       return next;
     });
-  };
+  }, [accessToken]);
 
   return { settings, updateSettings, loaded };
 }

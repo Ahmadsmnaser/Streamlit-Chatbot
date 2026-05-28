@@ -3,14 +3,19 @@
 import logging
 import os
 import sys
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dotenv import load_dotenv
 
-# Load .env from backend dir first, then project root as fallback
+BASE_DIR = os.path.dirname(__file__)
+
+# Load .env from backend dir first, then project root and current working directory as fallbacks.
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 load_dotenv()
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # ── API Keys ──────────────────────────────────────────────────────────────────
 GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
+GOOGLE_CLIENT_ID: str | None = os.getenv("GOOGLE_CLIENT_ID")
 
 if not GROQ_API_KEY:
     print("ERROR: GROQ_API_KEY is not set.")
@@ -18,6 +23,42 @@ if not GROQ_API_KEY:
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 FRONTEND_ORIGIN: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+ALLOWED_ORIGINS: list[str] = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        f"{FRONTEND_ORIGIN},http://localhost:3000,http://localhost:3001",
+    ).split(",")
+    if origin.strip()
+]
+
+# ── Database ──────────────────────────────────────────────────────────────────
+DATA_DIR: str = os.path.join(BASE_DIR, "data")
+
+
+def normalize_database_url(url: str) -> str:
+    """Make hosted Postgres URLs compatible with SQLAlchemy asyncpg."""
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+
+    if url.startswith("postgresql+asyncpg://"):
+        parts = urlsplit(url)
+        query = [
+            ("ssl" if key == "sslmode" else key, value)
+            for key, value in parse_qsl(parts.query)
+            if key not in {"channel_binding"}
+        ]
+        url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+    return url
+
+
+DATABASE_URL: str = normalize_database_url(
+    os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{os.path.join(DATA_DIR, 'chatbot.db')}")
+)
+LOCAL_USER_ID: str = os.getenv("LOCAL_USER_ID", "local-user")
 
 # ── Model Defaults ────────────────────────────────────────────────────────────
 DEFAULT_MODEL: str = "llama-3.1-8b-instant"
@@ -82,8 +123,7 @@ AVAILABLE_MODELS: list[dict] = [
 MAX_HISTORY_LENGTH: int = 40
 MAX_INPUT_LENGTH: int = 4000
 
-# ── Data ──────────────────────────────────────────────────────────────────────
-DATA_DIR: str = os.path.join(os.path.dirname(__file__), "data")
+# ── Legacy file storage ───────────────────────────────────────────────────────
 CHATS_DIR: str = os.path.join(DATA_DIR, "chats")
 
 # ── Logging ───────────────────────────────────────────────────────────────────

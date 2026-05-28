@@ -68,3 +68,21 @@ class ModeConfigResponse(BaseModel):
     temperature: float
     max_tokens: int
     rag_top_k: int
+
+
+# ── User Settings ─────────────────────────────────────────────────────────────
+
+class UserSettingsPayload(BaseModel):
+    """Request body for updating user settings."""
+    lang: str | None = Field(default=None, pattern="^(en|ar)$")
+    fontSize: str | None = Field(default=None, pattern="^(small|medium|large)$")
+    nickname: str | None = Field(default=None, max_length=120)
+    soundsEnabled: bool | None = None
+
+
+class UserSettingsResponse(BaseModel):
+    """Persisted user settings response."""
+    lang: str
+    fontSize: str
+    nickname: str
+    soundsEnabled: bool

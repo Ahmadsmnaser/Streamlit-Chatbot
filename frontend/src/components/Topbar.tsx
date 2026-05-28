@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { Session } from 'next-auth';
 import { detectDir } from '@/lib/utils';
 import { translations, Language } from '@/lib/i18n';
 
@@ -15,6 +16,8 @@ interface TopbarProps {
   onDelete?: () => void;
   onSettingsOpen: () => void;
   lang: Language;
+  user?: Session['user'];
+  onSignOut: () => void;
 }
 
 export function Topbar({
@@ -26,6 +29,8 @@ export function Topbar({
   onDelete,
   onSettingsOpen,
   lang,
+  user,
+  onSignOut,
 }: TopbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -111,6 +116,18 @@ export function Topbar({
             </div>
           )}
         </div>
+
+
+
+        <button className="user-chip" onClick={onSignOut} aria-label="Sign out">
+          {user?.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.image} alt="" className="user-chip-avatar" />
+          ) : (
+            <span className="user-chip-avatar fallback">{user?.name?.charAt(0) ?? 'U'}</span>
+          )}
+          <span className="user-chip-name">{user?.name ?? user?.email ?? 'User'}</span>
+        </button>
 
         <div style={{ position: 'relative' }} ref={menuRef}>
           <button className="icon-btn" onClick={() => setMenuOpen((o) => !o)} aria-label="More options">
