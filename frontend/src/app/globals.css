@@ -405,6 +405,42 @@ input, textarea { font-family: inherit; color: inherit; }
 .confidence-medium { color: #e8a838; }
 .confidence-low { color: #d95757; }
 
+/* ============== THINKING BLOCK ============== */
+.thinking-block { margin-top: 8px; border: 1.5px solid var(--primary-2); border-radius: 10px; overflow: hidden; }
+.thinking-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--primary-2) 8%, var(--surface-2));
+  color: var(--primary-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: start;
+  transition: background 150ms, color 150ms;
+}
+.thinking-toggle:hover { background: color-mix(in srgb, var(--primary-2) 15%, var(--surface-2)); }
+.thinking-body {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Thinking… streaming indicator */
+.thinking-bubble { display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; color: var(--primary-2); font-size: 13px; font-weight: 500; }
+.thinking-label { opacity: 0.85; }
+.thinking-pulse { animation: thinkPulse 1.4s ease-in-out infinite; }
+@keyframes thinkPulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+
 /* ============== UPLOAD BUTTON ============== */
 .upload-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; transition: background 150ms, color 150ms; }
 .upload-btn:hover { background: var(--surface-hover); color: var(--primary-2); }

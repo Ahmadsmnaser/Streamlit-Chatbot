@@ -72,6 +72,7 @@ export interface ChatRequest {
 
 export interface SSEToken {
   token?: string;
+  thinking_chunk?: string;
   done?: boolean;
   error?: string;
   metadata?: {
@@ -79,6 +80,7 @@ export interface SSEToken {
     time: number;
     citations?: Citation[];
     reasoning_summary?: ReasoningSummary;
+    thinking?: string | null;
   };
 }
 
@@ -218,7 +220,8 @@ export function streamChat(
   signal: AbortSignal,
   onToken: (token: string) => void,
   onDone: (metadata?: StreamMetadata) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  onThinkingToken?: (chunk: string) => void
 ): void {
   const cleanMessages = request.messages.map(({ role, content }) => ({ role, content }));
 
@@ -251,6 +254,7 @@ export function streamChat(
             const json: SSEToken = JSON.parse(line.slice(6));
             if (json.error) { onError(json.error); return; }
             if (json.done) { onDone(json.metadata); return; }
+            if (json.thinking_chunk) { onThinkingToken?.(json.thinking_chunk); continue; }
             if (json.token) onToken(json.token);
           } catch {
             // skip malformed chunk

@@ -33,6 +33,7 @@ export interface UIMessage {
   citations?: Citation[];
   reasoningSummary?: ReasoningSummary;
   usedRag?: boolean;
+  thinking?: string;
 }
 
 interface UseChatOptions {
@@ -49,6 +50,7 @@ interface UseChatOptions {
 export function useChat({ accessToken, model, temperature, systemPrompt, sessionId, mode, onSessionUpdate, onStreamDone }: UseChatOptions) {
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const streamingIdRef = useRef<string>('');
@@ -95,6 +97,7 @@ export function useChat({ accessToken, model, temperature, systemPrompt, session
     streamingIdRef.current = streamId;
 
     setIsStreaming(true);
+    setIsThinking(false);
     setStreamingContent('');
 
     const apiMessages: ChatMessage[] = currentMessages.map((m) => ({
@@ -116,6 +119,7 @@ export function useChat({ accessToken, model, temperature, systemPrompt, session
       },
       controller.signal,
       (token) => {
+        setIsThinking(false);
         accumulated += token;
         setStreamingContent(accumulated);
       },
@@ -132,9 +136,11 @@ export function useChat({ accessToken, model, temperature, systemPrompt, session
           citations,
           reasoningSummary: metadata?.reasoning_summary,
           usedRag: citations.length > 0,
+          thinking: metadata?.thinking ?? undefined,
         };
         setMessages((prev) => [...prev, finalMsg]);
         setIsStreaming(false);
+        setIsThinking(false);
         setStreamingContent('');
         onStreamDone?.();
 
@@ -155,7 +161,11 @@ export function useChat({ accessToken, model, temperature, systemPrompt, session
           ]);
         }
         setIsStreaming(false);
+        setIsThinking(false);
         setStreamingContent('');
+      },
+      () => {
+        setIsThinking(true);
       }
     );
   }
@@ -173,6 +183,7 @@ export function useChat({ accessToken, model, temperature, systemPrompt, session
       ]);
     }
     setIsStreaming(false);
+    setIsThinking(false);
     setStreamingContent('');
   }, [streamingContent]);
 
@@ -189,6 +200,7 @@ export function useChat({ accessToken, model, temperature, systemPrompt, session
   return {
     messages,
     isStreaming,
+    isThinking,
     streamingContent,
     sendMessage,
     cancelStream,

@@ -18,6 +18,8 @@ interface TopbarProps {
   lang: Language;
   user?: Session['user'];
   onSignOut: () => void;
+  nickname: string;
+  onNicknameChange: (v: string) => void;
 }
 
 export function Topbar({
@@ -31,17 +33,22 @@ export function Topbar({
   lang,
   user,
   onSignOut,
+  nickname,
+  onNicknameChange,
 }: TopbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const t = translations[lang];
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) setThemeMenuOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
     }
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
@@ -119,15 +126,61 @@ export function Topbar({
 
 
 
-        <button className="user-chip" onClick={onSignOut} aria-label="Sign out">
-          {user?.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.image} alt="" className="user-chip-avatar" />
-          ) : (
-            <span className="user-chip-avatar fallback">{user?.name?.charAt(0) ?? 'U'}</span>
+        <div style={{ position: 'relative' }} ref={userMenuRef}>
+          <button className="user-chip" onClick={() => setUserMenuOpen((o) => !o)} aria-label="Account menu">
+            {user?.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.image} alt="" className="user-chip-avatar" />
+            ) : (
+              <span className="user-chip-avatar fallback">{user?.name?.charAt(0) ?? 'U'}</span>
+            )}
+            <span className="user-chip-name">{user?.name ?? user?.email ?? 'User'}</span>
+          </button>
+          {userMenuOpen && (
+            <div className="menu" style={{ minWidth: 240, padding: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 10px' }}>
+                {user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.image} alt="" className="user-chip-avatar" style={{ width: 32, height: 32 }} />
+                ) : (
+                  <span className="user-chip-avatar fallback" style={{ width: 32, height: 32, fontSize: 14 }}>{user?.name?.charAt(0) ?? 'U'}</span>
+                )}
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.email ?? user?.name ?? 'User'}
+                </span>
+              </div>
+              <div style={{ padding: '4px 10px 8px' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>
+                  {t.nickname}
+                </label>
+                <input
+                  type="text"
+                  className="text-input"
+                  value={nickname}
+                  onChange={(e) => onNicknameChange(e.target.value)}
+                  style={{ width: '100%', fontSize: 13 }}
+                />
+              </div>
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+              <button className="menu-item" onClick={() => { onSettingsOpen(); setUserMenuOpen(false); }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" className="icon-stroke" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9" />
+                </svg>
+                {t.settings}
+              </button>
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+              <button className="menu-item" style={{ color: '#d95757' }} onClick={() => { onSignOut(); setUserMenuOpen(false); }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" className="icon-stroke" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                {t.signOut}
+              </button>
+            </div>
           )}
-          <span className="user-chip-name">{user?.name ?? user?.email ?? 'User'}</span>
-        </button>
+        </div>
 
         <div style={{ position: 'relative' }} ref={menuRef}>
           <button className="icon-btn" onClick={() => setMenuOpen((o) => !o)} aria-label="More options">

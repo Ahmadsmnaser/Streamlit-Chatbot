@@ -59,6 +59,10 @@ def invoke_llm(
     }
 
 
+_THINK_OPEN = "<think>"
+_THINK_CLOSE = "</think>"
+
+
 async def stream_llm(
     messages: list[dict],
     model: str = DEFAULT_MODEL,
@@ -69,21 +73,95 @@ async def stream_llm(
 ) -> AsyncGenerator[str, None]:
     """Stream tokens from the LLM as Server-Sent Events.
 
-    Yields SSE-formatted strings: 'data: {"token": "...", "done": false}\n\n'
+    Yields SSE-formatted strings:
+      'data: {"token": "...", "done": false}\n\n'           — answer chunk
+      'data: {"thinking_chunk": "...", "done": false}\n\n'  — thinking chunk (hidden from bubble)
+      'data: {"token": "", "done": true, "metadata": {...}}\n\n' — stream complete
     """
     import json
 
     llm = get_llm(model, temperature, max_tokens)
     start = time.time()
 
+    # State machine for <think>...</think> detection.
+    # We buffer the start of the stream until we know whether this is a
+    # thinking model (starts with <think>) or a normal model.
+    buf = ""
+    in_think = False
+    think_done = False
+    thinking_content = ""
+
     try:
         async for chunk in llm.astream(messages):
-            if chunk.content:
-                event = json.dumps({"token": chunk.content, "done": False})
+            content = chunk.content
+            if not content:
+                continue
+
+            if think_done:
+                # Past the thinking block — stream answer tokens directly.
+                event = json.dumps({"token": content, "done": False})
                 yield f"data: {event}\n\n"
+                continue
+
+            if in_think:
+                # Accumulate thinking content and watch for the closing tag.
+                buf += content
+                close_idx = buf.find(_THINK_CLOSE)
+                if close_idx != -1:
+                    thinking_content += buf[:close_idx]
+                    answer_tail = buf[close_idx + len(_THINK_CLOSE):]
+                    buf = ""
+                    in_think = False
+                    think_done = True
+                    # Emit whatever answer text follows </think> on the same chunk.
+                    if answer_tail:
+                        event = json.dumps({"token": answer_tail, "done": False})
+                        yield f"data: {event}\n\n"
+                else:
+                    # Still inside <think>; emit a thinking_chunk so the
+                    # frontend can show a "Thinking…" indicator.
+                    thinking_content += content
+                    event = json.dumps({"thinking_chunk": content, "done": False})
+                    yield f"data: {event}\n\n"
+                continue
+
+            # Not yet decided: buffer until we can tell if it starts with <think>.
+            buf += content
+            if buf.startswith(_THINK_OPEN):
+                # Strip the opening tag and enter thinking mode.
+                buf = buf[len(_THINK_OPEN):]
+                in_think = True
+                # Emit any content already past the tag as thinking.
+                if buf:
+                    close_idx = buf.find(_THINK_CLOSE)
+                    if close_idx != -1:
+                        thinking_content = buf[:close_idx]
+                        answer_tail = buf[close_idx + len(_THINK_CLOSE):]
+                        buf = ""
+                        in_think = False
+                        think_done = True
+                        if answer_tail:
+                            event = json.dumps({"token": answer_tail, "done": False})
+                            yield f"data: {event}\n\n"
+                    else:
+                        thinking_content = buf
+                        event = json.dumps({"thinking_chunk": buf, "done": False})
+                        yield f"data: {event}\n\n"
+                        buf = ""
+            elif len(buf) >= len(_THINK_OPEN) and not _THINK_OPEN.startswith(buf):
+                # Buffer is long enough and clearly not going to become <think>.
+                think_done = True
+                event = json.dumps({"token": buf, "done": False})
+                yield f"data: {event}\n\n"
+                buf = ""
+
+        # Flush any remaining buffer (e.g. a partial non-think tag at end).
+        if buf:
+            event = json.dumps({"token": buf, "done": False})
+            yield f"data: {event}\n\n"
 
         elapsed = time.time() - start
-        logger.info("LLM stream complete: model=%s, time=%.2fs", model, elapsed)
+        logger.info("LLM stream complete: model=%s, time=%.2fs, thinking=%d chars", model, elapsed, len(thinking_content))
 
         done_event = json.dumps({
             "token": "",
@@ -93,6 +171,7 @@ async def stream_llm(
                 "time": round(elapsed, 2),
                 "citations": citations or [],
                 "reasoning_summary": reasoning_summary or {},
+                "thinking": thinking_content or None,
             },
         })
         yield f"data: {done_event}\n\n"

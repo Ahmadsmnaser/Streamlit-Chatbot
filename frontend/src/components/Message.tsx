@@ -15,6 +15,35 @@ interface MessageProps {
   lang?: Language;
 }
 
+function ThinkingBlock({ thinking, lang = 'en' }: { thinking: string; lang?: Language }) {
+  const [open, setOpen] = useState(false);
+  const label = lang === 'ar' ? 'عرض التفكير' : 'View thinking';
+  const hideLabel = lang === 'ar' ? 'إخفاء التفكير' : 'Hide thinking';
+
+  return (
+    <div className="thinking-block">
+      <button
+        className="thinking-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" className="icon-stroke" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6L15 17H9l-.3-2.1C6.7 13.7 5 11.5 5 9a7 7 0 0 1 7-7z" />
+          <line x1="9" y1="21" x2="15" y2="21" />
+          <line x1="9.5" y1="17" x2="14.5" y2="17" />
+        </svg>
+        {open ? hideLabel : label}
+        <svg width="11" height="11" viewBox="0 0 24 24" className={`icon-stroke reasoning-chevron${open ? ' open' : ''}`} aria-hidden="true" style={{ marginInlineStart: 'auto' }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <pre className="thinking-body">{thinking.trim()}</pre>
+      )}
+    </div>
+  );
+}
+
 export function Message({ msg, onRegenerate, userNickname = 'User', lang = 'en' }: MessageProps) {
   const [copied, setCopied] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -72,6 +101,10 @@ export function Message({ msg, onRegenerate, userNickname = 'User', lang = 'en' 
           </div>
         )}
 
+        {!isUser && !msg.streaming && msg.thinking && (
+          <ThinkingBlock thinking={msg.thinking} lang={lang} />
+        )}
+
         {!isUser && !msg.streaming && msg.reasoningSummary && (
           <ReasoningSummaryBlock summary={msg.reasoningSummary} />
         )}
@@ -99,12 +132,26 @@ export function Message({ msg, onRegenerate, userNickname = 'User', lang = 'en' 
   );
 }
 
-export function StreamingMessage({ content, onStop, lang = 'en' }: { content: string; onStop: () => void; lang?: Language }) {
+export function StreamingMessage({ content, onStop, lang = 'en', isThinking = false }: { content: string; onStop: () => void; lang?: Language; isThinking?: boolean }) {
   const dir = detectDir(content);
   const t = translations[lang];
   return (
     <div>
-      {content ? (
+      {isThinking && !content ? (
+        <div className="msg bot">
+          <div className="avatar bot" aria-hidden="true"><Mascot size={22} /></div>
+          <div className="msg-body">
+            <div className="bubble bot thinking-bubble">
+              <svg width="14" height="14" viewBox="0 0 24 24" className="icon-stroke thinking-pulse" aria-hidden="true">
+                <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6L15 17H9l-.3-2.1C6.7 13.7 5 11.5 5 9a7 7 0 0 1 7-7z" />
+                <line x1="9" y1="21" x2="15" y2="21" />
+                <line x1="9.5" y1="17" x2="14.5" y2="17" />
+              </svg>
+              <span className="thinking-label">{lang === 'ar' ? 'يفكّر...' : 'Thinking…'}</span>
+            </div>
+          </div>
+        </div>
+      ) : content ? (
         <div className="msg bot">
           <div className="avatar bot" aria-hidden="true"><Mascot size={22} /></div>
           <div className="msg-body">
