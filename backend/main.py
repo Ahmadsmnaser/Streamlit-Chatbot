@@ -326,13 +326,10 @@ async def ask_ahmad_public(request: AskAhmadRequest):
         request.mode, grounded, len(retrieved),
     )
 
-    from config import AVAILABLE_MODELS
-    default_model = AVAILABLE_MODELS[0]["id"] if AVAILABLE_MODELS else "llama-3.1-8b-instant"
-
     return StreamingResponse(
         stream_llm(
             messages,
-            model=default_model,
+            model="llama-3.3-70b-versatile",
             temperature=0.3,
             max_tokens=1024,
             citations=citations,

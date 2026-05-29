@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { askAhmadPublic, AskAhmadMode, Citation, ReasoningSummary } from '@/lib/api';
+import { askAhmadPublic, AskAhmadMode } from '@/lib/api';
 import { renderMarkdown } from '@/lib/markdown';
 import { Mascot, MascotLarge } from './Mascot';
 
@@ -18,8 +18,6 @@ const SUGGESTED_QUESTIONS: { icon: string; text: string; question: string; mode:
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  citations?: Citation[];
-  reasoning?: ReasoningSummary;
 }
 
 export function AskAhmadPanel() {
@@ -29,7 +27,6 @@ export function AskAhmadPanel() {
   const [jobDescription, setJobDesc]    = useState('');
   const [streaming, setStreaming]       = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const [citationsOpen, setCitOpen]     = useState<Record<number, boolean>>({});
   const abortRef                        = useRef<AbortController | null>(null);
   const bottomRef                       = useRef<HTMLDivElement>(null);
 
@@ -70,19 +67,6 @@ export function AskAhmadPanel() {
         },
         (metadata) => {
           setStreaming(false);
-          if (metadata) {
-            setMessages((prev) => {
-              const updated = [...prev];
-              if (updated[assistantIdx]) {
-                updated[assistantIdx] = {
-                  ...updated[assistantIdx],
-                  citations: metadata.citations,
-                  reasoning: metadata.reasoning_summary,
-                };
-              }
-              return updated;
-            });
-          }
           scrollToBottom();
         },
         (err) => {
@@ -208,43 +192,6 @@ export function AskAhmadPanel() {
                         )}
                       </div>
 
-                      {/* Citations */}
-                      {msg.citations && msg.citations.length > 0 && (
-                        <div className="citations" style={{ marginTop: 10 }}>
-                          <button
-                            className="citations-toggle"
-                            onClick={() => setCitOpen((p) => ({ ...p, [i]: !p[i] }))}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                              <polyline points="14 2 14 8 20 8" />
-                            </svg>
-                            Sources ({Array.from(new Set(msg.citations.map((c) => c.fileName))).length} files)
-                            <svg
-                              width="12" height="12" viewBox="0 0 24 24" fill="none"
-                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                              className={`reasoning-chevron${citationsOpen[i] ? ' open' : ''}`}
-                            >
-                              <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                          </button>
-                          {citationsOpen[i] && Array.from(new Set(msg.citations.map((c) => c.fileName))).map((file) => (
-                            <div key={file} className="citation-item">
-                              <span className="citation-src">{file}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Confidence badge */}
-                      {msg.reasoning && (
-                        <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <span className={`confidence-${msg.reasoning.confidence}`}
-                            style={{ fontSize: 11.5, fontWeight: 600 }}>
-                            ● {msg.reasoning.confidence} confidence
-                          </span>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="bubble user">{msg.content}</div>
